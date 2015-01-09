@@ -19,11 +19,19 @@ module IndexTank
     # this variables can be used in the scoring functions
     # when sorting a search
     def add(fields, options = {})
-      options.merge!(:docid => self.docid, :fields => fields)
+      options.reverse_merge!(:docid => self.docid, :fields => fields, :tries => 0)
 
+      options[:tries] += 1
       resp = @conn.put do |req|
         req.url ""
         req.body = options.to_json
+      end
+
+      # if SOME_CONDITION and options[:tries] < 3
+      if ![200,204].include?(resp.status) && options[:tries] < 3
+        puts "im trying number #{options[:tries]}"
+        sleep(5)
+        self.add(fields, options)
       end
 
       resp.status
