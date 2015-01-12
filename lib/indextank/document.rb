@@ -28,9 +28,12 @@ module IndexTank
       end
 
       # if SOME_CONDITION and options[:tries] < 3
-      if ![200,204].include?(resp.status) && options[:tries] < 3
+      logger = Logger.new(STDOUT)
+      
+      if ![200,204].include?(resp.status) && options[:tries] < 5
         puts "im trying number #{options[:tries]}"
-        sleep(5)
+        Rails.logger.info("im trying number #{options[:tries]}")
+        sleep(10)
         self.add(fields, options)
       end
 
