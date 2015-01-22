@@ -42,9 +42,10 @@ module IndexTank
         log_to_everything("InvalidArgument occurred. Can't retry. Fields: #{options[:fields].inspect}")
       rescue UnexpectedHTTPException => ex
         status = 'UnexpectedHTTPException'
-        if options[:tries] < 6
-          log_to_everything("That failed! We're gonna retry that in 10 seconds")
-          sleep(10)
+        if options[:tries] < 5
+          try_in = options[:tries] * 2
+          log_to_everything("That failed! We're gonna retry that in #{try_in} seconds")
+          sleep(try_in)
           self.add(fields, options)
         end
       end
@@ -55,13 +56,30 @@ module IndexTank
     end
 
     def delete(options = {})
-      options.merge!(:docid => self.docid)
-      resp = @conn.delete do |req|
-        req.url ""
-        req.body = options.to_json
+      options.merge!(:docid => self.docid, :tries => 0)
+      
+      log_to_everything("Removing from index with tries #{options[:tries]}")
+
+      options[:tries] += 1
+      status = 'UNKNOWN'
+      begin
+        resp = @conn.delete do |req|
+          req.url ""
+          req.body = options.select { |k,v| [:docid].include?(k) }.to_json
+        end
+      rescue InvalidArgument => ex
+        log_to_everything("InvalidArgument occurred. Can't retry.")
+      rescue UnexpectedHTTPException => ex
+        status = 'UnexpectedHTTPException'
+        if options[:tries] < 5
+          try_in = options[:tries] * 2
+          log_to_everything("That failed! We're gonna retry that in #{try_in} seconds")
+          sleep(try_in)
+          self.delete(options)
+        end
       end
 
-      resp.status 
+      status 
     end
 
     def update_variables(variables, options = {})
