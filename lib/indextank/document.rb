@@ -30,23 +30,28 @@ module IndexTank
       log_to_everything("Adding to index with tries #{options[:tries]}")
 
       options[:tries] += 1
-      resp = @conn.put do |req|
-        req.url ""
-        req.body = options.to_json
+      status = 'UNKNOWN'
+      begin
+        resp = @conn.put do |req|
+          req.url ""
+          req.body = options.select { |k,v| [:docid, :fields].include?(k) }.to_json
+        end
+        status = resp.status
+        log_to_everything("Response status was: #{resp.status}")
+      rescue InvalidArgument => ex
+        log_to_everything("InvalidArgument occurred. Can't retry. Fields: #{options[:fields].inspect}")
+      rescue UnexpectedHTTPException => ex
+        status = 'UnexpectedHTTPException'
+        if options[:tries < 6]
+          log_to_everything("That failed! We're gonna retry that in 10 seconds")
+          sleep(10)
+          self.add(fields, options)
+        end
       end
       
-      log_to_everything("Response status was: #{resp.status}")
+      log_to_everything("Returning from add index attempt with status: #{status}")
 
-      # if SOME_CONDITION and options[:tries] < 3
-      if ![200,204].include?(resp.status) && options[:tries] < 5
-        log_to_everything("We're gonna retry that in 10 seconds")
-        sleep(10)
-        self.add(fields, options)
-      end
-
-      log_to_everything("Returning from add index attempt with status: #{resp.status}")
-
-      resp.status
+      status
     end
 
     def delete(options = {})
