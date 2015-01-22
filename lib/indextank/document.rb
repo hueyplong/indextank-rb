@@ -42,7 +42,7 @@ module IndexTank
         log_to_everything("InvalidArgument occurred. Can't retry. Fields: #{options[:fields].inspect}")
       rescue UnexpectedHTTPException => ex
         status = 'UnexpectedHTTPException'
-        if options[:tries < 6]
+        if options[:tries] < 6
           log_to_everything("That failed! We're gonna retry that in 10 seconds")
           sleep(10)
           self.add(fields, options)
