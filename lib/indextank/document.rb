@@ -14,6 +14,12 @@ module IndexTank
       end
     end
 
+    def log_to_everything(message)
+      log_message = "[IndexTank][#{self.docid}]: #{message}"
+      Rails.logger.info log_message if defined?(Rails) and defined?(Rails.logger)
+      Resque.logger.info log_message if defined?(Resque) and defined?(Resque.logger)
+    end
+
     # the options argument may contain a :variables key
     # with a Hash from variable numbers to their float values
     # this variables can be used in the scoring functions
@@ -21,18 +27,24 @@ module IndexTank
     def add(fields, options = {})
       options.reverse_merge!(:docid => self.docid, :fields => fields, :tries => 0)
 
+      log_to_everything("Adding to index with tries #{options[:tries]}")
+
       options[:tries] += 1
       resp = @conn.put do |req|
         req.url ""
         req.body = options.to_json
       end
+      
+      log_to_everything("Response status was: #{resp.status}")
 
       # if SOME_CONDITION and options[:tries] < 3
       if ![200,204].include?(resp.status) && options[:tries] < 5
-        puts "im trying number #{options[:tries]}"
+        log_to_everything("We're gonna retry that in 10 seconds")
         sleep(10)
         self.add(fields, options)
       end
+
+      log_to_everything("Returning from add index attempt with status: #{resp.status}")
 
       resp.status
     end
