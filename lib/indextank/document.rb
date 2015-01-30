@@ -34,7 +34,7 @@ module IndexTank
       begin
         resp = @conn.put do |req|
           req.url ""
-          req.body = options.select { |k,v| [:docid, :fields].include?(k) }.to_json
+          req.body = options.reject { |k,v| k == :tries }.to_json
         end
         status = resp.status
         log_to_everything("Response status was: #{resp.status}")
